@@ -1,0 +1,94 @@
+- name: Validator | Create project directory
+  file:
+    path: "{{ validator_django_dir }}"
+    state: directory
+    mode: 0700
+  become: true
+  become_user: tnb
+
+- name: Validator | Create log directory
+  file:
+    path: "{{ logs_dir }}"
+    state: directory
+    mode: 0700
+  become: true
+  become_user: tnb
+
+- name: Validator | Clone Project
+  git:
+    repo: "https://github.com/thenewboston-developers/Validator.git"
+    dest: "{{ validator_django_dir }}"
+    force: true
+    version: "{{ django_git_branch }}"
+  become: true
+  become_user: tnb
+
+- name: Validator | Install virtualenv via pip
+  pip:
+    name: virtualenv
+    executable: pip3
+  become: true
+
+- name: Validator | Install Required Python Libraries
+  pip:
+    requirements: ./requirements/{{ environment_type }}.txt
+    virtualenv: "{{ validator_django_dir }}/.venv"
+    version: "3"
+    chdir: "{{ validator_django_dir }}"
+  become: true
+  become_user: tnb
+
+- name: Validator | Migrate to the database
+  django_manage:
+    command: migrate --noinput
+    app_path: "{{ validator_django_dir }}"
+    virtualenv: "{{ validator_django_dir }}/.venv"
+  become: true
+  become_user: tnb
+
+- name: Validator | Collect to the static files
+  django_manage:
+    command: collectstatic --noinput --clear 
+    app_path: "{{ validator_django_dir }}"
+    virtualenv: "{{ validator_django_dir }}/.venv"
+  become: true
+  become_user: tnb
+
+- name: Validator | Add Daphne to the Supervisor.
+  include_role:
+    name: geerlingguy.supervisor
+  vars:
+    ansible_become: true
+    supervisor_started: true
+    supervisor_enabled: true
+    supervisor_programs:
+      - name: daphne.validator
+        command: "{{ validator_django_dir }}/.venv/bin/daphne -p 8002 config.asgi:application"
+        state: present
+        configuration: |
+          directory={{ validator_django_dir }}
+          user={{ user }}
+          autostart=true
+          autorestart=true
+          stderr_logfile={{ logs_dir }}/dahpne-validator-service-err.log
+          stdout_logfile={{ logs_dir }}/daphne-validator-service-out.log
+          environment=
+            DJANGO_APPLICATION_ENVIRONMENT={{ environment_type }},
+            NETWORK_SIGNING_KEY="{{ network_signing_key }}"
+
+- name: Validator | Ensure Daphne service is restarted and running.
+  supervisorctl:
+    name: daphne.validator
+    state: restarted
+  become: true
+
+- name: Validator | Add project config to NGINX
+  include_role:
+    name: nginxinc.nginx_config
+  vars:
+    ansible_become: true
+    nginx_config_http_template_enable: true
+    nginx_config_http_template:
+      default:
+        template_file: default.validator.conf.j2
+        conf_file_name: tnb-validator-1.conf

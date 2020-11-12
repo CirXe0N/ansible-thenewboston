@@ -1,0 +1,26 @@
+- hosts: "{{ host_groups }}"
+  roles:
+    - common
+    - nginx
+    - redis
+    - role: postgresql
+      when: (host_groups == 'tnb-validators')
+    - role: tnb_validator
+      when: (host_groups == 'tnb-validators')
+    - role: tnb_bank
+      when: (host_groups == 'tnb-banks')
+    - celery
+  vars:
+    user: "tnb"
+    home_dir: "/home/{{ user }}"
+    logs_dir: "{{ home_dir }}/logs"
+    bank_django_dir: "{{ home_dir }}/www/bank"
+    validator_django_dir: "{{ home_dir }}/www/validator"
+    network_signing_key: "6f812a35643b55a77f71c3b722504fbc5918e83ec72965f7fd33865ed0be8f81"
+    environment_type: "production"
+    django_git_branch: "master"
+  environment:
+    LC_ALL: C.UTF-8
+    LANG: C.UTF-8
+    DJANGO_APPLICATION_ENVIRONMENT: "{{ environment_type }}"
+    NETWORK_SIGNING_KEY: "{{ network_signing_key }}"

@@ -1,0 +1,50 @@
+- name: Install NGINX with default HTTP config
+  include_role:
+    name: nginxinc.nginx
+  vars:
+    ansible_become: true
+
+- name: Setup NGINX config
+  include_role:
+    name: nginxinc.nginx_config
+  vars:
+    ansible_become: true
+    nginx_config_main_template_enable: true
+    nginx_config_main_template:
+      template_file: nginx.conf.j2
+      conf_file_name: nginx.conf
+      conf_file_location: /etc/nginx/
+      user: tnb
+      worker_processes: auto
+      error_level: warn
+      worker_connections: 1024
+      http_enable: true
+      http_settings:
+        access_log_format:
+          - name: main
+            format: |-
+              '$remote_addr - $remote_user [$time_local] "$request" '
+              '$status $body_bytes_sent "$http_referer" '
+              '"$http_user_agent" "$http_x_forwarded_for"'
+        access_log_location:
+          - name: main
+            location: /var/log/nginx/access.log
+        tcp_nopush: true
+        tcp_nodelay: true
+        keepalive_timeout: 65
+        cache: false
+        rate_limit: false
+        keyval: false
+      http_global_autoindex: false
+      sub_filter:
+        last_modified: "off"
+        once: "on"
+        types: "text/html"
+      stream_enable: false
+
+- name: Restart NGINX
+  service:
+    name: nginx 
+    state: restarted 
+    enabled: yes
+  become: yes

@@ -1,0 +1,45 @@
+- name: Add Celery to the Supervisor.
+  include_role:
+    name: geerlingguy.supervisor
+  vars:
+    supervisor_started: true
+    supervisor_enabled: true
+    supervisor_programs:
+      - name: celery.bank.worker
+        command: "{{ bank_django_dir }}/.venv/bin/celery worker -A 'config.settings'"
+        state: present
+        configuration: |
+          directory={{ bank_django_dir }}
+          user={{ user }}
+          autostart=true
+          autorestart=true
+          stderr_logfile={{ logs_dir }}/celery-bank-service-err.log
+          stdout_logfile={{ logs_dir }}/celery-bank-service-out.log
+          environment=
+            DJANGO_APPLICATION_ENVIRONMENT={{ environment_type }},
+            NETWORK_SIGNING_KEY="{{ network_signing_key }}"
+      - name: celery.validator.worker
+        command: "{{ validator_django_dir }}/.venv/bin/celery worker -A 'config.settings'"
+        state: present
+        configuration: |
+          directory={{ validator_django_dir }}
+          user={{ user }}
+          autostart=true
+          autorestart=true
+          stderr_logfile={{ logs_dir }}/celery-validator-service-err.log
+          stdout_logfile={{ logs_dir }}/celery-validator-service-out.log
+          environment=
+            DJANGO_APPLICATION_ENVIRONMENT={{ environment_type }},
+            NETWORK_SIGNING_KEY="{{ network_signing_key }}"
+
+- name: Ensure Celery Bank Worker service is restarted and running.
+  supervisorctl:
+    name: celery.bank.worker
+    state: restarted
+  when: (host_groups == 'tnb-banks')
+
+- name: Ensure Celery Validator Worker service is restarted and running.
+  supervisorctl:
+    name: celery.validator.worker
+    state: restarted
+  when: (host_groups == 'tnb-validators')

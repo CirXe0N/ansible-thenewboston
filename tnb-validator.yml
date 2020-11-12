@@ -1,0 +1,3 @@
+- import_playbook: ./base.yml
+  vars: 
+    host_groups: "tnb-validators"

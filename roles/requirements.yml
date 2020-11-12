@@ -1,0 +1,5 @@
+- src: nginxinc.nginx
+- src: nginxinc.nginx_config
+- src: geerlingguy.supervisor
+- src: geerlingguy.redis
+- src: geerlingguy.postgresql

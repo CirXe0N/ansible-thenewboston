@@ -16,7 +16,7 @@
     logs_dir: "{{ home_dir }}/logs"
     bank_django_dir: "{{ home_dir }}/www/bank"
     validator_django_dir: "{{ home_dir }}/www/validator"
-    network_signing_key: "6f812a35643b55a77f71c3b722504fbc5918e83ec72965f7fd33865ed0be8f81"
+    network_signing_key: 
     environment_type: "production"
     django_git_branch: "master"
   environment:

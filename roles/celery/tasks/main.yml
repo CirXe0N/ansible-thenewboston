@@ -1,4 +1,4 @@
-- name: Add Celery to the Supervisor.
+- name: Add Celery Bank Worker to the Supervisor.
   include_role:
     name: geerlingguy.supervisor
   vars:
@@ -6,7 +6,7 @@
     supervisor_enabled: true
     supervisor_programs:
       - name: celery.bank.worker
-        command: "{{ bank_django_dir }}/.venv/bin/celery worker -A 'config.settings'"
+        command: "{{ bank_django_dir }}/.venv/bin/celery worker -A 'config.settings' -c 2 --time-limit=1800"
         state: present
         configuration: |
           directory={{ bank_django_dir }}
@@ -18,28 +18,77 @@
           environment=
             DJANGO_APPLICATION_ENVIRONMENT={{ environment_type }},
             NETWORK_SIGNING_KEY="{{ network_signing_key }}"
-      - name: celery.validator.worker
-        command: "{{ validator_django_dir }}/.venv/bin/celery worker -A 'config.settings'"
-        state: present
-        configuration: |
-          directory={{ validator_django_dir }}
-          user={{ user }}
-          autostart=true
-          autorestart=true
-          stderr_logfile={{ logs_dir }}/celery-validator-service-err.log
-          stdout_logfile={{ logs_dir }}/celery-validator-service-out.log
-          environment=
-            DJANGO_APPLICATION_ENVIRONMENT={{ environment_type }},
-            NETWORK_SIGNING_KEY="{{ network_signing_key }}"
-
+  when: (host_groups == 'tnb-banks')
+  
 - name: Ensure Celery Bank Worker service is restarted and running.
   supervisorctl:
     name: celery.bank.worker
     state: restarted
   when: (host_groups == 'tnb-banks')
 
-- name: Ensure Celery Validator Worker service is restarted and running.
+- name: Add Celery Validator Worker to the Supervisor.
+  include_role:
+    name: geerlingguy.supervisor
+  vars:
+    celery_bin: "{{ validator_django_dir }}/.venv/bin/celery"
+    supervisor_started: true
+    supervisor_enabled: true
+    supervisor_programs:      
+      - name: celery.validator.w1
+        command: "{{ celery_bin }} worker -A 'config.settings' -Q celery -c 2 --time-limit=1800"
+        state: present
+        configuration: |
+          directory={{ validator_django_dir }}
+          user={{ user }}
+          autostart=true
+          autorestart=true
+          stderr_logfile={{ logs_dir }}/celery-validator-w1-err.log
+          stdout_logfile={{ logs_dir }}/celery-validator-w1-out.log
+          environment=
+            DJANGO_APPLICATION_ENVIRONMENT={{ environment_type }},
+            NETWORK_SIGNING_KEY="{{ network_signing_key }}"
+      - name: celery.validator.w2
+        command: "{{ celery_bin }} worker -A 'config.settings' -Q block_queue -P solo --time-limit=1800"
+        state: present
+        configuration: |
+          directory={{ validator_django_dir }}
+          user={{ user }}
+          autostart=true
+          autorestart=true
+          stderr_logfile={{ logs_dir }}/celery-validator-w2-err.log
+          stdout_logfile={{ logs_dir }}/celery-validator-w2-out.log
+          environment=
+            DJANGO_APPLICATION_ENVIRONMENT={{ environment_type }},
+            NETWORK_SIGNING_KEY="{{ network_signing_key }}"
+      - name: celery.validator.w3
+        command: "{{ celery_bin }} worker -A 'config.settings' -Q confirmation_block_queue -P solo --time-limit=1800"
+        state: present
+        configuration: |
+          directory={{ validator_django_dir }}
+          user={{ user }}
+          autostart=true
+          autorestart=true
+          stderr_logfile={{ logs_dir }}/celery-validator-w3-err.log
+          stdout_logfile={{ logs_dir }}/celery-validator-w3-out.log
+          environment=
+            DJANGO_APPLICATION_ENVIRONMENT={{ environment_type }},
+            NETWORK_SIGNING_KEY="{{ network_signing_key }}"
+  when: (host_groups == 'tnb-validators')
+
+- name: Ensure Celery Validator W1 service is restarted and running.
   supervisorctl:
-    name: celery.validator.worker
+    name: celery.validator.w1
+    state: restarted
+  when: (host_groups == 'tnb-validators')
+
+- name: Ensure Celery Validator W2 service is restarted and running.
+  supervisorctl:
+    name: celery.validator.w2
+    state: restarted
+  when: (host_groups == 'tnb-validators')
+
+- name: Ensure Celery Validator W3 service is restarted and running.
+  supervisorctl:
+    name: celery.validator.w2
     state: restarted
   when: (host_groups == 'tnb-validators')
